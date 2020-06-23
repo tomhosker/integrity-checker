@@ -23,11 +23,11 @@ class Comparator:
         self.first_root = first_root
         self.second_root = second_root
         self.cwd = CWD()
-        self.completed_folders = []
-        self.completed_folders_second = []
-        self.missing_from_first = []
-        self.missing_from_second = []
-        self.not_identical = []
+        self.completed_folders = set()
+        self.completed_folders_second = set()
+        self.missing_from_first = set()
+        self.missing_from_second = set()
+        self.not_identical = set()
 
     def all_sub_folders_completed(self, rel_path):
         """ Check if we've already gone through all the subfolder in the
@@ -41,35 +41,78 @@ class Comparator:
                     return False
         return True
 
+    def all_sub_folders_completed_second(self, rel_path):
+        """ Check if we've already gone through all the subfolder in the
+        current directory. """
+        abs_path = self.second_root+rel_path
+        folders = os.listdir(abs_path)
+        for folder in folders:
+            if os.path.isdir(abs_path+folder):
+                folder_path = rel_path+folder
+                if folder_path not in self.completed_folders_second:
+                    return False
+        return True
+
     def walk_through(self):
         """ Walk through each directory in the tree. """
-        path_to_here = self.first_root+"/"+self.cwd.get_path()
+        path_to_here = combine_path(self.first_root, self.cwd.get_path())
         files_and_folders = os.listdir(path_to_here)
         for filename in files_and_folders:
-            if os.path.isfile(path_to_here+filename):
+            if os.path.isfile(combine_path(path_to_here, filename)):
                 self.compare_file(filename)
         if (self.cwd.is_root() and
             self.all_sub_folders_completed(self.cwd.get_path())):
             return
         for folder in files_and_folders:
-            path_to_folder = path_to_here+folder
-            if os.path.isdir(path_to_folder):
-                if path_to_folder not in self.completed_folders:
+            path_to_folder_rel = self.cwd.get_path()+folder
+            path_to_folder_abs = path_to_here+folder
+            if os.path.isdir(path_to_folder_abs):
+                if path_to_folder_rel not in self.completed_folders:
                     self.cwd.change_down(folder)
                     self.walk_through()
-        self.completed_folders.append(self.cwd.get_path())
+        self.completed_folders.add(self.cwd.get_path())
         self.cwd.change_up()
         self.walk_through()
 
+    def walk_through_second(self):
+        """ Walk through each directory in the SECOND tree. """
+        path_to_here = combine_path(self.second_root, self.cwd.get_path())
+        files_and_folders = os.listdir(path_to_here)
+        for filename in files_and_folders:
+            if os.path.isfile(combine_path(path_to_here, filename)):
+                self.compare_file(filename)
+        if (self.cwd.is_root() and
+            self.all_sub_folders_completed_second(self.cwd.get_path())):
+            return
+        for folder in files_and_folders:
+            path_to_folder_rel = self.cwd.get_path()+folder
+            path_to_folder_abs = path_to_here+folder
+            if os.path.isdir(path_to_folder_abs):
+                if path_to_folder_rel not in self.completed_folders_second:
+                    self.cwd.change_down(folder)
+                    self.walk_through_second()
+        self.completed_folders_second.add(self.cwd.get_path())
+        self.cwd.change_up()
+        self.walk_through_second()
+
+    def walk_through_both(self):
+        """ Walk through both file trees. """
+        self.walk_through()
+        self.walk_through_second()
+
     def compare_file(self, filename):
         """ Compare the two versions of a given file. """
-        first_abs_path = self.first_root+self.cwd.get_path()+filename
-        second_abs_path = self.second_root+self.cwd.get_path()+filename
-        if not os.path.exists(second_abs_path):
-            self.missing_from_second.append(first_abs_path)
+        first_abs_path = combine_path(self.first_root, self.cwd.get_path())
+        first_abs_path = combine_path(first_abs_path, filename)
+        second_abs_path = combine_path(self.second_root, self.cwd.get_path())
+        second_abs_path = combine_path(second_abs_path, filename)
+        if not os.path.exists(first_abs_path):
+            self.missing_from_first.add(second_abs_path)
+        elif not os.path.exists(second_abs_path):
+            self.missing_from_second.add(first_abs_path)
         elif not filecmp.cmp(first_abs_path, second_abs_path,
                              shallow=False):
-            self.not_identical.append(first_abs_path)
+            self.not_identical.add(first_abs_path)
 
     def write_report(self):
         """ Write a report on the integrity of the data. """
@@ -122,7 +165,7 @@ class Comparator:
 
     def walk_and_write(self):
         """ Walk through the file trees and write the report. """
-        self.walk_through()
+        self.walk_through_both()
         self.write_report()
 
 ################################
@@ -142,7 +185,7 @@ class CWD:
     def change_up(self):
         """ Move up in the file tree. """
         if len(self.folders) == 0:
-            raise Exception("Nowhere else to go!")
+            return
         last_index = len(self.folders)-1
         self.folders.remove(self.folders[last_index])
 
@@ -162,8 +205,18 @@ class CWD:
         the two roots. """
         result = ""
         for folder in self.folders:
-            result = result+folder+"/"
+            result = combine_path(result, folder)
         return result
+
+def combine_path(left, right):
+    """ Combine two snippets of a path. """
+    if left == "":
+        result = right
+    elif left.endswith("/"):
+        result = left+right
+    else:
+        result = left+"/"+right
+    return result
 
 ###########
 # TESTING #
@@ -175,11 +228,122 @@ def test0():
     first_root = home_dir+"integrity-checker/test_files/test0/first_root/"
     second_root = home_dir+"integrity-checker/test_files/test0/second_root/"
     cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
     assert cmptr.get_report_code() == IDENTICAL_CODE
+
+def test1():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test1/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test1/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == MISSING_FROM_FIRST_CODE
+
+def test2():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test2/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test2/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == MISSING_FROM_SECOND_CODE
+
+def test3():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test3/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test3/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == NOT_IDENTICAL
+
+def test4():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test4/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test4/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == IDENTICAL_CODE
+
+def test5():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test5/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test5/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == MISSING_FROM_FIRST_CODE
+
+def test6():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test6/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test6/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == MISSING_FROM_SECOND_CODE
+
+def test7():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test7/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test7/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == NOT_IDENTICAL
+
+def test8():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test8/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test8/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == IDENTICAL_CODE
+
+def test8():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test8/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test8/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == IDENTICAL_CODE
+
+def test9():
+    """ Run the next test. """
+    home_dir = str(pathlib.Path.home())+"/"
+    first_root = home_dir+"integrity-checker/test_files/test9/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test9/second_root/"
+    cmptr = Comparator(first_root, second_root)
+    cmptr.walk_through_both()
+    assert cmptr.get_report_code() == MISSING_FROM_FIRST_CODE
+
+def basic_tests():
+    """ Ronseal. """
+    test0()
+    test1()
+    test2()
+    test3()
+
+def middle_tests():
+    """ Ronseal. """
+    test4()
+    test5()
+    test6()
+    test7()
+
+def higher_tests():
+    test8()
+    test9()
 
 def test():
     """ Run the unit tests. """
-    test0()
+    basic_tests()
+    middle_tests()
+    higher_tests()
     print("Tests passed!")
 
 def demo():

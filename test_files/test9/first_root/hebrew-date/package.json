@@ -1,0 +1,74 @@
+{
+  "_from": "hebrew-date",
+  "_id": "hebrew-date@1.0.4",
+  "_inBundle": false,
+  "_integrity": "sha512-CogyqHmkZVbhjlzuHYMgh60FjNNRP5MIva1TqWVQ5MNylrsh9fytlbAdtZ9MAlH26EG0Oqf8d8mpHVzl1rcJCA==",
+  "_location": "/hebrew-date",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "hebrew-date",
+    "name": "hebrew-date",
+    "escapedName": "hebrew-date",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/hebrew-date/-/hebrew-date-1.0.4.tgz",
+  "_shasum": "2fae188d2cb853f766fd5ba3ee41534fff1d5e5c",
+  "_spec": "hebrew-date",
+  "_where": "/home/tom/new-cyprus",
+  "author": {
+    "name": "Ionică Bizău",
+    "email": "bizauionica@gmail.com",
+    "url": "https://ionicabizau.net"
+  },
+  "bugs": {
+    "url": "https://github.com/IonicaBizau/hebrew-date/issues"
+  },
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Convert the date objects into the Hebrew calendar correspondant.",
+  "files": [
+    "bin/",
+    "app/",
+    "lib/",
+    "dist/",
+    "src/",
+    "scripts/",
+    "resources/",
+    "menu/",
+    "cli.js",
+    "index.js",
+    "bloggify.js",
+    "bloggify.json",
+    "bloggify/"
+  ],
+  "homepage": "https://github.com/IonicaBizau/hebrew-date#readme",
+  "keywords": [
+    "hebrew",
+    "date",
+    "convert",
+    "the",
+    "objects",
+    "into",
+    "calendar",
+    "correspondant"
+  ],
+  "license": "MIT",
+  "main": "lib/index.js",
+  "name": "hebrew-date",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/IonicaBizau/hebrew-date.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "version": "1.0.4"
+}
