@@ -5,6 +5,7 @@ their respective folders and files. """
 import filecmp
 import os
 import pathlib
+import shutil
 import time
 
 # Constants.
@@ -341,10 +342,14 @@ def higher_tests():
 
 def test():
     """ Run the unit tests. """
+    print("Extracting test files...")
+    os.system("unzip test_files.zip >/dev/null")
+    print("Running tests...")
     basic_tests()
     middle_tests()
     higher_tests()
     print("Tests passed!")
+    shutil.rmtree("test_files/")
 
 def demo():
     """ Run a demo. """
