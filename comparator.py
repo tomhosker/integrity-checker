@@ -9,10 +9,10 @@ import shutil
 import time
 
 # Constants.
-IDENTICAL_CODE = 1
+WHOLLY_IDENTICAL_CODE = 1
 MISSING_FROM_FIRST_CODE = 2
 MISSING_FROM_SECOND_CODE = 3
-NOT_IDENTICAL = 5
+DIFF_EQUIVALENT_FILES_CODE = 5
 
 ##############
 # MAIN CLASS #
@@ -28,7 +28,7 @@ class Comparator:
         self.completed_folders_second = set()
         self.missing_from_first = set()
         self.missing_from_second = set()
-        self.not_identical = set()
+        self.diff_equivalent = set()
 
     def all_sub_folders_completed(self, rel_path):
         """ Check if we've already gone through all the subfolder in the
@@ -62,7 +62,7 @@ class Comparator:
             if os.path.isfile(combine_path(path_to_here, filename)):
                 self.compare_file(filename)
         if (self.cwd.is_root() and
-            self.all_sub_folders_completed(self.cwd.get_path())):
+                self.all_sub_folders_completed(self.cwd.get_path())):
             return
         for folder in files_and_folders:
             path_to_folder_rel = self.cwd.get_path()+folder
@@ -83,7 +83,7 @@ class Comparator:
             if os.path.isfile(combine_path(path_to_here, filename)):
                 self.compare_file(filename)
         if (self.cwd.is_root() and
-            self.all_sub_folders_completed_second(self.cwd.get_path())):
+                self.all_sub_folders_completed_second(self.cwd.get_path())):
             return
         for folder in files_and_folders:
             path_to_folder_rel = self.cwd.get_path()+folder
@@ -113,7 +113,7 @@ class Comparator:
             self.missing_from_second.add(first_abs_path)
         elif not filecmp.cmp(first_abs_path, second_abs_path,
                              shallow=False):
-            self.not_identical.add(first_abs_path)
+            self.diff_equivalent.add(first_abs_path)
 
     def write_report(self):
         """ Write a report on the integrity of the data. """
@@ -123,45 +123,42 @@ class Comparator:
         report = ("Report on file trees "+self.first_root+" and "+
                   self.second_root+" at "+epoch_str)
         report_code = self.get_report_code()
-        if report_code == IDENTICAL_CODE:
+        if report_code == WHOLLY_IDENTICAL_CODE:
             report = report+"\n\nGood news! File trees are identical."
-        elif report_code%MISSING_FROM_FIRST_CODE == 0:
+        if report_code%MISSING_FROM_FIRST_CODE == 0:
             report = (report+"\n\nThe following files are absent in the "+
                       "first tree, but present in the second:\n\n    ")
             for item in self.missing_from_first:
-                if self.missing_from_first.index(item):
-                    report = report+item
-                else:
-                    report = report+", "+item
-        elif report_code%MISSING_FROM_SECOND_CODE == 0:
+                report = report+item+", "
+            if report.endswith(", "):
+                report = report[:-2]
+        if report_code%MISSING_FROM_SECOND_CODE == 0:
             report = (report+"\n\nThe following files are absent in the "+
                       "second tree, but present in the first:\n\n    ")
             for item in self.missing_from_second:
-                if self.missing_from_second.index(item):
-                    report = report+item
-                else:
-                    report = report+", "+item
-        elif report_code%NOT_IDENTICAL == 0:
+                report = report+item+", "
+            if report.endswith(", "):
+                report = report[:-2]
+        if report_code%DIFF_EQUIVALENT_FILES_CODE == 0:
             report = (report+"\n\nThe following files are present in both "+
                       "trees, but are not identical:\n\n    ")
-            for item in self.not_identical:
-                if self.not_identical.index(item):
-                    report = report+item
-                else:
-                    report = report+", "+item
+            for item in self.diff_equivalent:
+                report = report+item+", "
+            if report.endswith(", "):
+                report = report[:-2]
         with open(path_to_report, "w") as report_file:
             report_file.write(report)
         print("Report written to "+path_to_report+".")
 
     def get_report_code(self):
         """ Calculate a code, indicating the status of the report. """
-        result = IDENTICAL_CODE
+        result = WHOLLY_IDENTICAL_CODE
         if len(self.missing_from_first) > 0:
             result = result*MISSING_FROM_FIRST_CODE
         if len(self.missing_from_second) > 0:
             result = result*MISSING_FROM_SECOND_CODE
-        if len(self.not_identical) > 0:
-            result = result*NOT_IDENTICAL
+        if len(self.diff_equivalent) > 0:
+            result = result*DIFF_EQUIVALENT_FILES_CODE
         return result
 
     def walk_and_write(self):
@@ -198,8 +195,7 @@ class CWD:
         """ Ronseal. """
         if len(self.folders) == 0:
             return True
-        else:
-            return False
+        return False
 
     def get_path(self):
         """ Print out a path for our current working directory, relative to
@@ -230,7 +226,7 @@ def test0():
     second_root = home_dir+"integrity-checker/test_files/test0/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == IDENTICAL_CODE
+    assert cmptr.get_report_code() == WHOLLY_IDENTICAL_CODE
 
 def test1():
     """ Run the next test. """
@@ -257,7 +253,7 @@ def test3():
     second_root = home_dir+"integrity-checker/test_files/test3/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == NOT_IDENTICAL
+    assert cmptr.get_report_code() == DIFF_EQUIVALENT_FILES_CODE
 
 def test4():
     """ Run the next test. """
@@ -266,7 +262,7 @@ def test4():
     second_root = home_dir+"integrity-checker/test_files/test4/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == IDENTICAL_CODE
+    assert cmptr.get_report_code() == WHOLLY_IDENTICAL_CODE
 
 def test5():
     """ Run the next test. """
@@ -293,7 +289,7 @@ def test7():
     second_root = home_dir+"integrity-checker/test_files/test7/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == NOT_IDENTICAL
+    assert cmptr.get_report_code() == DIFF_EQUIVALENT_FILES_CODE
 
 def test8():
     """ Run the next test. """
@@ -302,16 +298,7 @@ def test8():
     second_root = home_dir+"integrity-checker/test_files/test8/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == IDENTICAL_CODE
-
-def test8():
-    """ Run the next test. """
-    home_dir = str(pathlib.Path.home())+"/"
-    first_root = home_dir+"integrity-checker/test_files/test8/first_root/"
-    second_root = home_dir+"integrity-checker/test_files/test8/second_root/"
-    cmptr = Comparator(first_root, second_root)
-    cmptr.walk_through_both()
-    assert cmptr.get_report_code() == IDENTICAL_CODE
+    assert cmptr.get_report_code() == WHOLLY_IDENTICAL_CODE
 
 def test9():
     """ Run the next test. """
@@ -320,7 +307,9 @@ def test9():
     second_root = home_dir+"integrity-checker/test_files/test9/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_through_both()
-    assert cmptr.get_report_code() == MISSING_FROM_FIRST_CODE
+    all_errors = (MISSING_FROM_FIRST_CODE*MISSING_FROM_SECOND_CODE*
+                  DIFF_EQUIVALENT_FILES_CODE)
+    assert cmptr.get_report_code() == all_errors
 
 def basic_tests():
     """ Ronseal. """
@@ -352,12 +341,16 @@ def test():
     shutil.rmtree("test_files/")
 
 def demo():
-    """ Run a demo. """
+    """ Run a demonstration. """
+    print("Extracting test files...")
+    os.system("unzip test_files.zip >/dev/null")
+    print("Running demonstration...")
     home_dir = str(pathlib.Path.home())+"/"
-    first_root = home_dir+"integrity-checker/test_files/test0/first_root/"
-    second_root = home_dir+"integrity-checker/test_files/test0/second_root/"
+    first_root = home_dir+"integrity-checker/test_files/test9/first_root/"
+    second_root = home_dir+"integrity-checker/test_files/test9/second_root/"
     cmptr = Comparator(first_root, second_root)
     cmptr.walk_and_write()
+    shutil.rmtree("test_files/")
 
 ###################
 # RUN AND WRAP UP #
@@ -365,7 +358,8 @@ def demo():
 
 def run():
     """ Ronseal. """
-    test()
+    #test()
+    demo()
 
 if __name__ == "__main__":
     run()
